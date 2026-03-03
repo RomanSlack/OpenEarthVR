@@ -1,0 +1,8 @@
+{
+  "name": "open-earth-vr",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter server dev & pnpm --filter client dev"
+  }
+}
