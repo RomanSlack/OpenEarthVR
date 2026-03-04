@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "com.cesium.unity": "https://github.com/CesiumGS/cesium-unity.git",
+    "com.unity.inputsystem": "1.11.2",
+    "com.unity.render-pipelines.universal": "17.0.3",
+    "com.unity.textmeshpro": "3.2.0-pre.12",
+    "com.unity.xr.hands": "1.5.0",
+    "com.unity.xr.interaction.toolkit": "3.0.7",
+    "com.unity.xr.management": "4.5.0",
+    "com.valvesoftware.unity.openvr": "https://github.com/ValveSoftware/unity-xr-plugin.git#v2.3.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.imageconversion": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.modules.unitywebrequesttexture": "1.0.0"
+  }
+}

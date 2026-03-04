@@ -1,0 +1,19 @@
+{
+    "name": "OpenEarthVR.Editor",
+    "rootNamespace": "OpenEarthVR.Editor",
+    "references": [
+        "OpenEarthVR",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

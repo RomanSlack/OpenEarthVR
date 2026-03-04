@@ -1,0 +1,23 @@
+{
+    "name": "OpenEarthVR",
+    "rootNamespace": "OpenEarthVR",
+    "references": [
+        "CesiumRuntime",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.XR.CoreUtils",
+        "Unity.XR.Hands",
+        "Unity.XR.Interaction.Toolkit",
+        "Unity.XR.Management",
+        "Newtonsoft.Json"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

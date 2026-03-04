@@ -1,0 +1,109 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!129 &1
+PlayerSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 26
+  productGUID: 00000000000000000000000000000000
+  AndroidProfiler: 0
+  AndroidFilterTouchesWhenObscured: 0
+  AndroidEnableCustomDesktopResolution: 0
+  defaultScreenWidth: 1920
+  defaultScreenHeight: 1080
+  defaultScreenWidthWeb: 960
+  defaultScreenHeightWeb: 600
+  m_StereoRenderingPath: 1
+  activeColorSpace: 1
+  m_MTRendering: 1
+  mipStripping: 0
+  numberOfMipsStripped: 0
+  m_StackTraceTypes: 010000000100000001000000010000000100000001000000
+  iosShowActivityIndicatorOnLoading: -1
+  androidShowActivityIndicatorOnLoading: -1
+  displayResolutionDialog: 0
+  bundleVersion: 0.1.0
+  resizableWindow: 1
+  useOnDemandResources: 0
+  useMacAppStoreValidation: 0
+  macOSURLSchemes: []
+  iOSLaunchScreenType: 0
+  iOSLaunchScreeniPadType: 0
+  productName: OpenEarthVR
+  companyName: OpenEarthVR
+  cloudProjectId:
+  framebufferDepthMemorylessMode: 0
+  qualitySettingsNames: []
+  projectGenerationRootNamespace: OpenEarthVR
+  projectGenerationPlayerPackages: 1
+  apiCompatibilityLevelPerPlatform:
+    Standalone: 3
+  m_RenderingPath: 1
+  m_MobileRenderingPath: 1
+  metroPackageName: OpenEarthVR
+  metroPackageVersion:
+  metroApplicationDescription: OpenEarthVR
+  virtualRealitySplashScreen: {fileID: 0}
+  HolographicTrackingLossScreen: {fileID: 0}
+  virtualRealitySupported: 0
+  singlePassStereoRendering: 0
+  m_BuildTargetGraphicsAPIs:
+    - m_BuildTarget: LinuxStandaloneSupport
+      m_APIs: 150000001500000015000000
+      m_Automatic: 0
+  m_BuildTargetVRSettings:
+    - m_BuildTarget: Standalone
+      m_Enabled: 1
+      m_Devices:
+        - OpenVR
+  openGLRequireES31: 0
+  openGLRequireES31AEP: 0
+  openGLRequireES32: 0
+  vulkanNumSwapchainBuffers: 3
+  vulkanEnableSetSRGBWrite: 0
+  vulkanEnablePreTransform: 0
+  vulkanEnableLateAcquireNextImage: 0
+  vulkanEnableCommandBufferRecycling: 1
+  m_ColorGamuts: 00000000
+  targetDevice: 2
+  useHDRDisplay: 0
+  m_ColorSpaceForHDRDisplay: 0
+  m_AllowHDRDisplayActivation: 1
+  hdrBitDepth: 0
+  m_ShadowCascades: 4
+  m_ShadowDistance: 150
+  m_ShadowNearPlaneOffset: 3
+  m_ShadowCascade2Split: 0.33333334
+  m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+  m_ShadowmaskMode: 1
+  skinWeights: 4
+  textureCompressionQuality: 50
+  anisotropicTextures: 1
+  antiAliasing: 0
+  softParticles: 0
+  softVegetation: 1
+  realtimeReflectionProbes: 1
+  billboardsFaceCameraPosition: 1
+  vSyncCount: 0
+  lodBias: 2
+  maximumLODLevel: 0
+  streamingMipmapsActive: 0
+  streamingMipmapsAddAllCameras: 1
+  streamingMipmapsMemoryBudget: 512
+  streamingMipmapsRenderersPerFrame: 512
+  streamingMipmapsMaxLevelReduction: 2
+  streamingMipmapsMaxFileIORequests: 1024
+  particleRaycastBudget: 256
+  asyncUploadTimeSlice: 2
+  asyncUploadBufferSize: 16
+  asyncUploadPersistentBuffer: 1
+  resolutionScalingFixedDPIFactor: 1
+  enableFrameTimingStats: 0
+  enableOpenGLProfilerGPURecorders: 1
+  useHDRFramebuffer: 1
+  m_LogObjCUncaughtExceptions: 1
+  m_EnableInternalProfiler: 0
+  m_ActiveInputHandler: 2
+  m_CloudServicesEnabled: {}
+  luminanceForPrefabs: 1
+  Run in Background: 1
+  Fullscreen Mode: 1
