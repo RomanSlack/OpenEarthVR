@@ -1,28 +1,55 @@
 import { getTileUrl } from '../api/client.js';
 
-// Maximum tile grid per zoom level for Street View.
-// Edge tiles may not exist for a given panorama — handled gracefully below.
-const ZOOM_GRIDS: Record<number, { cols: number; rows: number }> = {
-  0: { cols: 1, rows: 1 },
-  1: { cols: 2, rows: 1 },
-  2: { cols: 4, rows: 2 },
-  3: { cols: 8, rows: 4 },
-  4: { cols: 16, rows: 8 },
-};
-
 export interface TileGrid {
   images: HTMLImageElement[][];
   cols: number;
   rows: number;
 }
 
-// Returns a transparent 512×512 image used when a tile doesn't exist.
+export interface PanoDimensions {
+  imageWidth: number;
+  imageHeight: number;
+  tileWidth: number;
+  tileHeight: number;
+}
+
+/**
+ * Compute the actual tile grid dimensions for a given zoom level
+ * based on the panorama's real resolution — NOT hardcoded maximums.
+ * User-uploaded photospheres are lower res than Google SV and have smaller grids.
+ */
+function computeGrid(dims: PanoDimensions, zoom: number): { cols: number; rows: number } {
+  const maxZoom = Math.ceil(Math.log2(dims.imageWidth / dims.tileWidth));
+  let cols = Math.ceil(dims.imageWidth / dims.tileWidth);
+  let rows = Math.ceil(dims.imageHeight / dims.tileHeight);
+
+  for (let z = maxZoom; z > zoom; z--) {
+    cols = Math.ceil(cols / 2);
+    rows = Math.ceil(rows / 2);
+  }
+
+  return { cols: Math.max(1, cols), rows: Math.max(1, rows) };
+}
+
+/**
+ * Pick the highest zoom level whose stitched canvas fits within the GPU's max texture size.
+ */
+export function bestFineZoom(dims: PanoDimensions, maxTextureSize: number): number {
+  const maxZoom = Math.ceil(Math.log2(dims.imageWidth / dims.tileWidth));
+  for (let z = maxZoom; z >= 0; z--) {
+    const g = computeGrid(dims, z);
+    const w = g.cols * dims.tileWidth;
+    const h = g.rows * dims.tileHeight;
+    if (w <= maxTextureSize && h <= maxTextureSize) return z;
+  }
+  return 0;
+}
+
 function blankTile(tileWidth = 512, tileHeight = 512): Promise<HTMLImageElement> {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     canvas.width = tileWidth;
     canvas.height = tileHeight;
-    // Canvas default is transparent black — no fill needed
     const img = new Image();
     img.onload = () => resolve(img);
     img.src = canvas.toDataURL();
@@ -34,20 +61,51 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`404: ${src}`));
+    img.onerror = () => reject(new Error(`Failed to load: ${src}`));
     img.src = src;
   });
+}
+
+export async function loadTilesProgressive(
+  panoId: string,
+  dims: PanoDimensions,
+  onCoarseReady: (grid: TileGrid) => void,
+  onFineReady: (grid: TileGrid) => void,
+  onProgress?: (loaded: number, total: number) => void,
+  maxTextureSize = 4096,
+): Promise<void> {
+  const maxZoom = Math.ceil(Math.log2(dims.imageWidth / dims.tileWidth));
+  const coarseZoom = Math.min(2, Math.max(0, maxZoom - 1));
+  const fineZoom = bestFineZoom(dims, maxTextureSize);
+
+  const coarseGrid = computeGrid(dims, coarseZoom);
+  const coarse = await loadTiles(panoId, coarseZoom, coarseGrid);
+  onCoarseReady(coarse);
+
+  if (fineZoom > coarseZoom) {
+    const fineGrid = computeGrid(dims, fineZoom);
+    const fine = await loadTiles(panoId, fineZoom, fineGrid, onProgress);
+    onFineReady(fine);
+  }
 }
 
 export async function loadTiles(
   panoId: string,
   zoom: number,
+  grid?: { cols: number; rows: number },
   onProgress?: (loaded: number, total: number) => void,
 ): Promise<TileGrid> {
-  const grid = ZOOM_GRIDS[zoom];
-  if (!grid) throw new Error(`Unsupported zoom level: ${zoom}`);
+  // Fallback to standard grids if no explicit grid provided
+  const STANDARD_GRIDS: Record<number, { cols: number; rows: number }> = {
+    0: { cols: 1, rows: 1 },
+    1: { cols: 2, rows: 1 },
+    2: { cols: 4, rows: 2 },
+    3: { cols: 7, rows: 4 },
+    4: { cols: 13, rows: 7 },
+    5: { cols: 26, rows: 13 },
+  };
 
-  const { cols, rows } = grid;
+  const { cols, rows } = grid ?? STANDARD_GRIDS[zoom] ?? { cols: 1, rows: 1 };
   const total = cols * rows;
   let settled = 0;
 
@@ -58,7 +116,7 @@ export async function loadTiles(
       const url = getTileUrl(panoId, zoom, x, y);
       tasks.push(
         loadImage(url)
-          .catch(() => blankTile()) // missing edge tiles are normal — use black placeholder
+          .catch(() => blankTile())
           .then((img) => {
             settled++;
             onProgress?.(settled, total);
@@ -70,7 +128,6 @@ export async function loadTiles(
 
   const results = await Promise.all(tasks);
 
-  // Build 2D array [y][x]
   const images: HTMLImageElement[][] = Array.from({ length: rows }, () =>
     new Array<HTMLImageElement>(cols),
   );

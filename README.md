@@ -1,129 +1,118 @@
-# VR Earth Explorer
+# OpenEarthVR
 
-A WebXR photosphere viewer that loads Google Street View panoramas and renders them on an inverted sphere using Three.js. Built for the Meta Quest 2 browser; also works on desktop with mouse-drag navigation.
+A WebXR Google Earth clone — explore a photorealistic 3D globe and drop into full-resolution Street View photospheres in VR.
 
-The server acts as an authenticated proxy so the Google Maps API key is never exposed to the client.
+Built for Meta Quest 2 (and desktop browsers).
 
----
+## Features
 
-## Architecture
-
-```
-client (Vite + Three.js)  →  /api/*  →  server (Express proxy)  →  Google Tiles API
-```
-
-- **Server** — Node.js/Express, TypeScript, ESM. Manages session tokens and streams panorama tiles.
-- **Client** — Vite SPA with HTTPS (required for WebXR). Fetches tiles in parallel, stitches them on a canvas, and maps the texture onto an inverted sphere.
-
----
+- **Photorealistic 3D Globe** — Google 3D Tiles via CesiumJS with HDR, PBR tone mapping, atmosphere, fog, and ambient occlusion
+- **Street View Coverage Overlay** — Blue coverage layer draped on 3D tiles shows where you can enter Street View
+- **Click-to-Enter** — Click anywhere on the globe with coverage to drop into the nearest photosphere
+- **Full-Resolution Photospheres** — Adaptive zoom (up to 13312x6656 on desktop, auto-scaled for Quest 2) with progressive loading, anisotropic filtering, mipmaps, and nadir fill
+- **Fly-Down Transitions** — Smooth camera animation from globe to street level, then fade to photosphere
+- **WebXR / VR Mode** — Immersive photosphere viewing with controller-based navigation
+- **Nav Orbs** — Click floating orbs to move between connected Street View locations
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 18+
 - pnpm (`npm install -g pnpm`)
-- A [Google Maps Platform](https://developers.google.com/maps/documentation/tile/get-api-key) API key with the **Map Tiles API** enabled
+- A [Google Maps Platform](https://developers.google.com/maps/documentation/tile/get-api-key) API key with **Map Tiles API** and **Street View Static API** enabled
 
----
-
-## Local development
+## Setup
 
 ```bash
-# 1. Clone and install
 git clone https://github.com/your-username/OpenEarthVR.git
 cd OpenEarthVR
 pnpm install
 
-# 2. Set your API key
+# Configure API key
 echo "GOOGLE_MAPS_API_KEY=your_key_here" > .env
 echo "PORT=3001" >> .env
 
-# 3. Start both server and client
+# Start dev server (server on :3001, client on https://localhost:5173)
 pnpm dev
 ```
 
-The client starts at `https://localhost:5173`. Accept the self-signed certificate in your browser.
+Open https://localhost:5173 and accept the self-signed certificate.
 
----
+## Testing on Quest 2
 
-## Testing on Meta Quest 2
+Your Quest and dev machine must be on the same Wi-Fi network.
 
-1. Connect the Quest and your PC to the same WiFi network.
-2. Run `pnpm dev` on the PC.
-3. Find your local IP: `ip addr` (Linux) or `ipconfig` (Windows).
-4. On the Quest browser, navigate to `https://<local-ip>:5173`.
-5. Accept the self-signed certificate (the browser may warn; proceed anyway).
-6. Tap **Enter VR**.
+1. Find your machine's local IP:
+   ```bash
+   hostname -I | awk '{print $1}'   # Linux
+   ipconfig getifaddr en0            # macOS
+   ```
 
----
+2. Make sure `client/vite.config.ts` has `server.host: '0.0.0.0'` so Vite binds to all interfaces.
 
-## Deployment
+3. On your Quest 2, open **Meta Browser** and go to:
+   ```
+   https://192.168.x.x:5173
+   ```
+   Accept the self-signed certificate warning.
 
-### Option A — Railway (recommended, persistent server)
+4. The globe loads. Click a blue-highlighted area, wait for the photosphere, then tap **Enter VR**.
 
-Railway supports Node.js out of the box and auto-deploys from GitHub.
+> **Tip:** If the Quest browser blocks the cert, visit `https://192.168.x.x:3001/api/health` first and accept there, then navigate to port 5173.
 
-1. Push this repo to GitHub.
-2. Create a new Railway project, connect the repo.
-3. Set environment variable `GOOGLE_MAPS_API_KEY` in the Railway dashboard.
-4. Set the start command to `pnpm --filter server start` and build command to `pnpm install && pnpm --filter server build`.
-5. Add a second service (static site) pointed at `client/dist` after running `pnpm --filter client build`.
-
-Or deploy to a single VPS (DigitalOcean, Hetzner, etc.) and run `pnpm --filter server start` behind a reverse proxy with a real TLS certificate from Let's Encrypt. WebXR on Quest requires HTTPS with a valid cert in production.
-
-### Option B — Vercel (serverless)
-
-The Express routes can run as Vercel serverless functions using `@vercel/node`. The in-memory session cache does not persist across cold starts but the app remains functional — the session is simply re-fetched as needed. See Sprint 2 for a proper Vercel adapter.
-
-### HTTPS note
-
-WebXR requires a secure context. For local dev the `@vitejs/plugin-basic-ssl` self-signed cert works. In production you need a real certificate (Let's Encrypt, Cloudflare Tunnel, or your host's managed TLS).
-
----
-
-## Project structure
+## Architecture
 
 ```
 OpenEarthVR/
-├── .env                          # GOOGLE_MAPS_API_KEY, PORT (not committed)
-├── pnpm-workspace.yaml
-├── server/
+├── server/            Express API proxy (hides Google API key from client)
 │   └── src/
-│       ├── main.ts               # Express app
-│       ├── config.ts             # Env loading, constants
-│       ├── cache.ts              # In-memory session token cache
+│       ├── main.ts             Express app + rate limiter
+│       ├── config.ts           Env loading
+│       ├── cache.ts            In-memory session cache
 │       └── routes/
-│           ├── session.ts        # POST /api/session
-│           ├── metadata.ts       # GET  /api/metadata
-│           └── tiles.ts          # GET  /api/tile/:z/:x/:y
-└── client/
-    ├── index.html
-    └── src/
-        ├── main.ts               # Startup sequence
-        ├── api/client.ts         # Typed fetch wrappers
-        └── photosphere/
-            ├── PanoView.ts       # Three.js scene, WebXR, inertia controls
-            ├── tileLoader.ts     # Parallel tile fetch with progress callback
-            └── stitcher.ts       # Canvas stitch to THREE.CanvasTexture
+│           ├── session.ts      POST /api/session
+│           ├── metadata.ts     GET  /api/metadata?lat=&lng= or ?panoId=
+│           ├── tiles.ts        GET  /api/tile/:z/:x/:y
+│           ├── svOverlay.ts    GET  /api/sv-overlay/:z/:x/:y
+│           ├── tiles3d.ts      GET  /api/3dtiles/*
+│           ├── panoIds.ts      POST /api/panoIds
+│           └── photospheres.ts POST /api/photospheres
+├── client/            Vite + Three.js + CesiumJS
+│   └── src/
+│       ├── main.ts                   State machine (GLOBE ↔ PHOTOSPHERE)
+│       ├── api/client.ts             Typed fetch wrappers
+│       ├── globe/GlobeView.ts        CesiumJS globe + 3D tiles + SV overlay
+│       ├── photosphere/
+│       │   ├── PanoView.ts           Three.js sphere + WebXR + nav orbs
+│       │   ├── tileLoader.ts         Adaptive tile fetching (zoom 2→5)
+│       │   └── stitcher.ts           Canvas stitching + nadir fill
+│       └── ui/
+│           ├── overlay.ts            Fade transitions
+│           └── copyright.ts          Copyright badge
+└── .env               GOOGLE_MAPS_API_KEY, PORT
 ```
 
----
-
-## API routes
+## API Routes
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/health` | Health check |
-| `POST` | `/api/session` | Warm up Google session token cache |
-| `GET` | `/api/metadata?lat=&lng=` | Panorama metadata by coordinates |
-| `GET` | `/api/metadata?panoId=` | Panorama metadata by ID |
-| `GET` | `/api/tile/:z/:x/:y?panoId=` | Proxy a single panorama tile |
+| `GET`  | `/api/health` | Health check |
+| `POST` | `/api/session` | Initialize Google tile session |
+| `GET`  | `/api/metadata?lat=&lng=` | Pano metadata by coordinates |
+| `GET`  | `/api/metadata?panoId=` | Pano metadata by ID |
+| `GET`  | `/api/tile/:z/:x/:y?panoId=` | Street View tile proxy |
+| `GET`  | `/api/sv-overlay/:z/:x/:y` | Street View coverage overlay tile |
+| `GET`  | `/api/3dtiles/*` | Google 3D Tiles proxy |
+| `POST` | `/api/panoIds` | Batch pano ID lookup |
+| `POST` | `/api/photospheres` | Photosphere search by bounds |
 
----
+## Deployment
 
-## Sprint roadmap
+WebXR requires HTTPS with a valid certificate in production. Options:
 
-- **Sprint 1** (current) — Photosphere viewer, WebXR, proxy server
-- Sprint 2 — Navigation arrows, panoId linking
-- Sprint 3 — Globe view with CesiumJS
-- Sprint 4 — Location search
-- Sprint 5 — Server-side tile caching
+- **Railway** — Set `GOOGLE_MAPS_API_KEY` env var, deploy from GitHub
+- **VPS** — Run behind a reverse proxy with Let's Encrypt TLS
+- **Cloudflare Tunnel** — Expose local dev to the internet with a real cert
+
+## License
+
+MIT

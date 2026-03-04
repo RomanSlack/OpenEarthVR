@@ -13,14 +13,52 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       }
 
-      #app {
+      #globe-container,
+      #pano-container {
+        position: fixed;
+        inset: 0;
         width: 100vw;
         height: 100vh;
-        cursor: grab;
       }
-      #app.grabbing { cursor: grabbing; }
+      #pano-container { display: none; cursor: grab; }
+      #pano-container.grabbing { cursor: grabbing; }
 
-      /* ── Loading overlay ── */
+      /* ── Fade overlay for state transitions ── */
+      #fade {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+        z-index: 20;
+      }
+
+      /* ── Back to Globe button ── */
+      #back-btn {
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 15;
+        background: rgba(0, 0, 0, 0.6);
+        color: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 24px;
+        padding: 10px 20px;
+        font-family: inherit;
+        font-size: 0.82rem;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        transition: background 0.2s, border-color 0.2s;
+      }
+      #back-btn:hover {
+        background: rgba(64, 148, 255, 0.25);
+        border-color: rgba(64, 148, 255, 0.7);
+      }
+
+      /* ── Initial loading overlay ── */
       #loading {
         position: fixed;
         inset: 0;
@@ -30,7 +68,7 @@
         justify-content: center;
         gap: 20px;
         background: radial-gradient(ellipse at 50% 40%, #0a1628 0%, #000812 100%);
-        z-index: 10;
+        z-index: 30;
         transition: opacity 0.6s ease;
       }
       #loading.fade-out {
@@ -95,6 +133,19 @@
         line-height: 1.5;
       }
 
+      /* ── Transition status (shown during pano load) ── */
+      #transition-status {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: rgba(180, 210, 255, 0.8);
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        z-index: 25;
+        pointer-events: none;
+      }
+
       /* ── Copyright badge ── */
       #copyright {
         position: fixed;
@@ -155,7 +206,13 @@
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="globe-container"></div>
+    <div id="pano-container"></div>
+
+    <div id="fade"></div>
+    <div id="transition-status"></div>
+
+    <button id="back-btn">← Globe</button>
 
     <div id="loading">
       <svg class="loading-globe" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -184,7 +241,7 @@
     </div>
 
     <div id="copyright"></div>
-    <div id="hint">Drag to look around · Click "Enter VR" for immersive mode</div>
+    <div id="hint">Drag to look around · Click orbs to navigate · "Enter VR" for immersive mode</div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
