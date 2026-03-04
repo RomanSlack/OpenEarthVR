@@ -1,6 +1,7 @@
 import { getTileUrl } from '../api/client.js';
 
-// Grid dimensions per zoom level for Street View tiles
+// Maximum tile grid per zoom level for Street View.
+// Edge tiles may not exist for a given panorama — handled gracefully below.
 const ZOOM_GRIDS: Record<number, { cols: number; rows: number }> = {
   0: { cols: 1, rows: 1 },
   1: { cols: 2, rows: 1 },
@@ -15,12 +16,25 @@ export interface TileGrid {
   rows: number;
 }
 
+// Returns a transparent 512×512 image used when a tile doesn't exist.
+function blankTile(tileWidth = 512, tileHeight = 512): Promise<HTMLImageElement> {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = tileWidth;
+    canvas.height = tileHeight;
+    // Canvas default is transparent black — no fill needed
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = canvas.toDataURL();
+  });
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load tile: ${src}`));
+    img.onerror = () => reject(new Error(`404: ${src}`));
     img.src = src;
   });
 }
@@ -35,7 +49,7 @@ export async function loadTiles(
 
   const { cols, rows } = grid;
   const total = cols * rows;
-  let loaded = 0;
+  let settled = 0;
 
   const tasks: Array<Promise<{ x: number; y: number; img: HTMLImageElement }>> = [];
 
@@ -43,11 +57,13 @@ export async function loadTiles(
     for (let x = 0; x < cols; x++) {
       const url = getTileUrl(panoId, zoom, x, y);
       tasks.push(
-        loadImage(url).then((img) => {
-          loaded++;
-          onProgress?.(loaded, total);
-          return { x, y, img };
-        }),
+        loadImage(url)
+          .catch(() => blankTile()) // missing edge tiles are normal — use black placeholder
+          .then((img) => {
+            settled++;
+            onProgress?.(settled, total);
+            return { x, y, img };
+          }),
       );
     }
   }
@@ -56,7 +72,7 @@ export async function loadTiles(
 
   // Build 2D array [y][x]
   const images: HTMLImageElement[][] = Array.from({ length: rows }, () =>
-    new Array<HTMLImageElement>(cols)
+    new Array<HTMLImageElement>(cols),
   );
   for (const { x, y, img } of results) {
     images[y][x] = img;
