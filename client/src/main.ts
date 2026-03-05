@@ -63,6 +63,7 @@ async function enterPhotosphere(
     panoView.resize();
   }
   panoView.reset();
+  panoView.setOnBack(() => returnToGlobe());
 
   // Fetch metadata — by panoId if we have one, otherwise by coordinates
   let metadata: Awaited<ReturnType<typeof fetchMetadata>>;

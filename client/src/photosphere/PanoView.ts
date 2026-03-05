@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 import type { PanoMetadata, PanoLink } from '../api/client.js';
 
 const ORB_RADIUS = 80;
@@ -42,10 +44,22 @@ export class PanoView {
   private pointer = new THREE.Vector2(-9999, -9999);
   private hoveredDisc: THREE.Mesh | null = null;
 
+  // VR exit callback
+  private onBack: (() => void) | null = null;
+
+  // VR controllers, lasers, hands
+  private controllers: THREE.Group[] = [];
+  private laserMeshes: THREE.Mesh[] = [];
+  private cameraRig = new THREE.Group();
+  private prevAXPressed = [false, false];
+
   constructor(container: HTMLElement) {
     this.container = container;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: false, // DMABUF XR path doesn't support antialiased framebuffers
+      alpha: true,      // XRWebGLLayer requires alpha on Linux
+    });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.xr.enabled = true;
@@ -67,6 +81,10 @@ export class PanoView {
       1000,
     );
     this.camera.position.set(0, 0, 0);
+
+    // Camera rig — rotating this applies smooth-turn in VR
+    this.cameraRig.add(this.camera);
+    this.scene.add(this.cameraRig);
 
     const geometry = new THREE.SphereGeometry(500, 80, 60);
     geometry.scale(-1, 1, 1);
@@ -118,6 +136,7 @@ export class PanoView {
     this.material.opacity = 0;
     this.material.transparent = true;
     this.material.needsUpdate = true;
+    this.cameraRig.rotation.y = 0;
     this.clearNavLinks();
   }
 
@@ -243,21 +262,124 @@ export class PanoView {
   }
 
   private setupVRController(): void {
-    const controller = this.renderer.xr.getController(0);
-    controller.addEventListener('selectstart', () => {
-      if (this.orbData.length === 0 || !this.onNavigate) return;
-      const tempMatrix = new THREE.Matrix4();
-      tempMatrix.extractRotation(controller.matrixWorld);
-      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+    const controllerModelFactory = new XRControllerModelFactory();
+    const handModelFactory = new XRHandModelFactory();
+
+    for (let i = 0; i < 2; i++) {
+      const controller = this.renderer.xr.getController(i);
+
+      // Store gamepad + handedness from the connected event (reliable on Quest)
+      controller.addEventListener('connected', (e: any) => {
+        const data = e.data as XRInputSource;
+        controller.userData.gamepad = data.gamepad;
+        controller.userData.handedness = data.handedness;
+      });
+      controller.addEventListener('disconnected', () => {
+        controller.userData.gamepad = null;
+        controller.userData.handedness = null;
+      });
+
+      // Trigger: select nav orbs
+      controller.addEventListener('selectstart', () => {
+        this.handleVRSelect(controller);
+      });
+
+      // Squeeze (grip button): go back to globe
+      controller.addEventListener('squeezestart', () => {
+        if (this.onBack) this.onBack();
+      });
+
+      // Add controller to cameraRig so smooth-turn keeps them aligned
+      this.cameraRig.add(controller);
+      this.controllers.push(controller);
+
+      // Controller model (grip space — renders Quest controller mesh)
+      const grip = this.renderer.xr.getControllerGrip(i);
+      grip.add(controllerModelFactory.createControllerModel(grip));
+      this.cameraRig.add(grip);
+
+      // Laser ray
+      const laserGeo = new THREE.CylinderGeometry(0.005, 0.005, 100, 8, 1, true);
+      laserGeo.translate(0, -50, 0); // extend along -Y (cylinder default axis)
+      laserGeo.rotateX(Math.PI / 2); // rotate so it extends along -Z
+      const laserMat = new THREE.MeshBasicMaterial({
+        color: 0x4fc3f7,
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const laser = new THREE.Mesh(laserGeo, laserMat);
+      controller.add(laser);
+      this.laserMeshes.push(laser);
+
+      // Hand tracking
+      const hand = this.renderer.xr.getHand(i);
+      hand.add(handModelFactory.createHandModel(hand, 'mesh'));
+
+      // Pinch gesture detection
+      hand.addEventListener('pinchstart', () => {
+        this.handleVRSelect(controller);
+      });
+
+      this.cameraRig.add(hand);
+    }
+  }
+
+  private handleVRSelect(controller: THREE.Group): void {
+    const tempMatrix = new THREE.Matrix4();
+    tempMatrix.extractRotation(controller.matrixWorld);
+    this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+    this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+    if (this.orbData.length > 0 && this.onNavigate) {
       const discs = this.orbData.map((o) => o.disc);
       const hits = this.raycaster.intersectObjects(discs);
       if (hits.length > 0) {
         const panoId = (hits[0].object as THREE.Mesh).userData.panoId as string;
         this.onNavigate(panoId);
       }
-    });
-    this.scene.add(controller);
+    }
+  }
+
+  /** Poll gamepad state each frame for buttons/axes not covered by XR events. */
+  private pollGamepads(): void {
+    for (let i = 0; i < this.controllers.length; i++) {
+      const controller = this.controllers[i];
+      const gp = controller.userData.gamepad as Gamepad | undefined;
+      if (!gp) continue;
+      const handedness = controller.userData.handedness as string | undefined;
+
+      // Check every button beyond trigger(0) and grip(1) for "go back"
+      // Quest mapping: 3=thumbstick press, 4=A/X, 5=B/Y, 6=thumbrest
+      let backPressed = false;
+      for (let b = 4; b < gp.buttons.length && b <= 5; b++) {
+        const btn = gp.buttons[b];
+        if (btn && (btn.pressed || btn.value > 0.5)) {
+          backPressed = true;
+          break;
+        }
+      }
+
+      if (backPressed) {
+        if (!this.prevAXPressed[i]) {
+          this.prevAXPressed[i] = true;
+          if (this.onBack) this.onBack();
+        }
+      } else {
+        this.prevAXPressed[i] = false;
+      }
+
+      // Right thumbstick horizontal → smooth yaw rotation
+      if (handedness === 'right' && gp.axes.length >= 2) {
+        // Quest uses axes[2,3] for thumbstick (axes[0,1] are placeholder touchpad)
+        const x = gp.axes.length > 2 ? gp.axes[2] : gp.axes[0];
+        const deadzone = 0.15;
+        if (Math.abs(x) > deadzone) {
+          this.cameraRig.rotation.y -= x * 0.03;
+        }
+      }
+    }
   }
 
   private trySelectOrb(): void {
@@ -321,10 +443,32 @@ export class PanoView {
     this.camera.lookAt(target);
   }
 
+  private updateVRHover(): void {
+    let anyHitDisc: THREE.Mesh | null = null;
+    const tempMatrix = new THREE.Matrix4();
+
+    for (const controller of this.controllers) {
+      tempMatrix.extractRotation(controller.matrixWorld);
+      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+      if (this.orbData.length > 0) {
+        const discs = this.orbData.map((o) => o.disc);
+        const hits = this.raycaster.intersectObjects(discs);
+        if (hits.length > 0) anyHitDisc = hits[0].object as THREE.Mesh;
+      }
+    }
+
+    this.hoveredDisc = anyHitDisc;
+  }
+
   private render(): void {
     if (!this.renderer.xr.isPresenting) {
       this.updateDesktopCamera();
       this.updateHover();
+    } else {
+      this.pollGamepads();
+      this.updateVRHover();
     }
     this.animateOrbs();
     this.renderer.render(this.scene, this.camera);
@@ -335,6 +479,10 @@ export class PanoView {
     this.camera.aspect = container.clientWidth / container.clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(container.clientWidth, container.clientHeight);
+  }
+
+  setOnBack(cb: (() => void) | null): void {
+    this.onBack = cb;
   }
 
   get maxTextureSize(): number {

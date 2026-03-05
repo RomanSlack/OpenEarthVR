@@ -26,7 +26,7 @@ export async function fetchMetadata(params: { lat: number; lng: number } | { pan
   if ('panoId' in params) {
     qs = `panoId=${encodeURIComponent(params.panoId)}`;
   } else {
-    qs = `lat=${params.lat}&lng=${params.lng}`;
+    qs = `lat=${params.lat}&lng=${params.lng}&radius=500`;
   }
 
   const res = await fetch(`/api/metadata?${qs}`);

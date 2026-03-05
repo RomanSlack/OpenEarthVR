@@ -49,7 +49,7 @@ namespace OpenEarthVR.Core
             // Start in globe mode
             SetGlobeActive(true);
             SetPanoActive(false);
-            copyrightBadge.Hide();
+            if (copyrightBadge != null) copyrightBadge.Hide();
         }
 
         public void EnterPhotosphere(double lat, double lng, string panoId = null)

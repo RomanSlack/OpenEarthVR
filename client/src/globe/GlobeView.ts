@@ -36,6 +36,10 @@ export class GlobeView {
     // --- Rendering quality ---
     const scene = this.viewer.scene;
 
+    // Black background instead of default blue sky while tiles load
+    scene.backgroundColor = Cesium.Color.BLACK;
+    scene.globe.baseColor = Cesium.Color.BLACK;
+
     // Enable depth picking so we can click on 3D tiles surface
     scene.globe.depthTestAgainstTerrain = true;
 
