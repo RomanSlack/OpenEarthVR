@@ -2,7 +2,6 @@
     "name": "OpenEarthVR",
     "rootNamespace": "OpenEarthVR",
     "references": [
-        "CesiumRuntime",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "Unity.XR.CoreUtils",
@@ -18,6 +17,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.cesium.unity",
+            "expression": "",
+            "define": "CESIUM_FOR_UNITY"
+        }
+    ],
     "noEngineReferences": false
 }

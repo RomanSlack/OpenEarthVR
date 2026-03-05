@@ -74,8 +74,11 @@ namespace OpenEarthVR.Core
                 currentTexture = null;
             }
 
-            meshRenderer.material.mainTexture = null;
-            meshRenderer.material.SetFloat("_Alpha", 0f);
+            if (meshRenderer != null && meshRenderer.material != null)
+            {
+                meshRenderer.material.mainTexture = null;
+                meshRenderer.material.SetFloat("_Alpha", 0f);
+            }
             isFadingIn = false;
             targetAlpha = 0f;
             transform.localRotation = Quaternion.identity;

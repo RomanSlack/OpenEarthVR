@@ -88,13 +88,6 @@ namespace OpenEarthVR.Core
             navOrbs.ClearOrbs();
 
             // Fetch metadata
-            PanoMetadata metadata;
-            if (!string.IsNullOrEmpty(panoId))
-                metadata = yield return ApiClient.Instance.GetMetadata(panoId: panoId);
-            else
-                metadata = yield return ApiClient.Instance.GetMetadata(lat: lat, lng: lng);
-
-            // Use coroutine wrapper to get metadata
             PanoMetadata fetchedMeta = null;
             bool metaFailed = false;
 
